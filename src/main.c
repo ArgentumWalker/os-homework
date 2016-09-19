@@ -1,6 +1,7 @@
-#include <innerTests.c>
+#include "innerTests.h"
+#include "LIO.h"
 
-static void qemu_gdb_hang(void)
+static void doTests(void)
 {
 #ifdef DEBUG
     callTests();    
@@ -11,11 +12,13 @@ static void qemu_gdb_hang(void)
 
 void main(void)
 {
-	qemu_gdb_hang();
+	initCOMport();
 
 	struct desc_table_ptr ptr = {0, 0};
 
 	write_idtr(&ptr);
+
+	doTests();
 
 	while (1);
 }
