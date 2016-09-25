@@ -1,10 +1,15 @@
 #include <stdint.h>
 #include "desc.h"
 #include "memory.h"
+#include "ioport.h"
 #include "IDT.h"
 #include "IDT_handlers.h"
 
 #define INTERRUPT_GATE (uint64_t)0xe
+#define MASTER_PIC_COMMAND_PORT 0x20
+#define MASTER_PIC_DATA_PORT 0x21
+#define SLAVE_PIC_COMMAND_PORT 0xA0
+#define SLAVE_PIC_DATA_PORT 0xA1
 
 struct IDTDesc{
    uint16_t offset_1; // offset bits 0..15
@@ -20,7 +25,18 @@ extern uint64_t tbl[];
 struct IDTDesc idt_table[100];
 uint32_t PART = -1;
 
-void IDT_init() {
+void initPIC() {
+    out8(MASTER_PIC_COMMAND_PORT, 0x11);
+    out8(MASTER_PIC_DATA_PORT, 32);
+    out8(MASTER_PIC_DATA_PORT, 0x04);
+    out8(MASTER_PIC_DATA_PORT, 0x01);
+    out8(SLAVE_PIC_COMMAND_PORT, 0x11);
+    out8(SLAVE_PIC_COMMAND_PORT, 40);
+    out8(SLAVE_PIC_COMMAND_PORT, 0x02);
+    out8(SLAVE_PIC_COMMAND_PORT, 0x01);
+}
+
+void initIDT() {
     for (int i = 0; i < 100; i++) {
         idt_table[i].offset_1 = tbl[i];
         idt_table[i].selector = KERNEL_CS;
@@ -30,8 +46,9 @@ void IDT_init() {
         idt_table[i].offset_3 = tbl[i] >> 32;
         idt_table[i].zero = 0;
     }
-    struct desc_table_ptr ptr = {(uint64_t)(idt_table), 100};
+    struct desc_table_ptr ptr = {(uint64_t)(idt_table), sizeof(struct IDTDesc)*100 - 1};
     write_idtr(&ptr);
+    initPIC();
 }
 
 #define call_handler(no) \
