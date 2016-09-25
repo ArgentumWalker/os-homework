@@ -51,6 +51,20 @@ void initIDT() {
     initPIC();
 }
 
+void disableInterruptions() {
+    __asm__ volatile("cli":::"cc");
+}
+void enableInterruptions() {
+    __asm__ volatile("sti":::"cc");
+}
+
+void setMasterPICInterruptions(char mask) {
+    out8(MASTER_PIC_DATA_PORT, mask);
+}
+void setSlavePICInterruptions(char mask) {
+    out8(SLAVE_PIC_DATA_PORT, mask);
+}
+
 #define call_handler(no) \
         if (hnum == no) {\
             handler##no();\

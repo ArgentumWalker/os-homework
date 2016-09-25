@@ -3,4 +3,10 @@
 
 void initIDT();
 
+void disableInterruptions();
+void enableInterruptions();
+
+void setMasterPICInterruptions(char mask); 
+void setSlavePICInterruptions(char mask);
+
 #endif
