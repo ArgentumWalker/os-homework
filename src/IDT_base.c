@@ -3,7 +3,6 @@
 #include "memory.h"
 #include "ioport.h"
 #include "IDT.h"
-#include "IDT_handlers.h"
 
 #define INTERRUPT_GATE (uint64_t)0xe
 #define MASTER_PIC_COMMAND_PORT 0x20
@@ -63,17 +62,5 @@ void setMasterPICInterruptions(char mask) {
 }
 void setSlavePICInterruptions(char mask) {
     out8(SLAVE_PIC_DATA_PORT, mask);
-}
-
-#define call_handler(no) \
-        if (hnum == no) {\
-            handler##no();\
-        }\
-
-void idt_c_handler(uint64_t* stackPointer) {
-    uint64_t hnum = *stackPointer;
-    call_handler(0);
-    call_handler(1);
-    //Do nothing
 }
 
