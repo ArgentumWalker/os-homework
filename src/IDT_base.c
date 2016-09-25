@@ -11,8 +11,6 @@ extern uint64_t tbl[];
 i16 idt_table[256];
 uint32_t PART = -1;
 
-void entry_pointers_ini();
-
 void IDT_init() {
     for (int i = 0; i < 100; i++) {
         idt_table[i] = 0;

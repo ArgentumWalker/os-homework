@@ -1,24 +1,59 @@
 .global tbl
 
+SAVE_REGISTERS:
+    pushq %rax;
+    pushq %rbx;
+    pushq %rcx;
+    pushq %rdx;
+    pushq %rbp;
+    pushq %rdi;
+    pushq %rsi;
+    pushq %r9;
+    pushq %r10;
+    pushq %r11;
+    pushq %r12;
+    pushq %r13;
+    pushq %r14;
+    pushq %r15;
+    ret;
+    
+LOAD_REGISTERS:
+    popq %r15;
+    popq %r14;
+    popq %r13;
+    popq %r12;
+    popq %r11;
+    popq %r10;
+    popq %r9;
+    popq %rsi;
+    popq %rdi;
+    popq %rbp;
+    popq %rdx;
+    popq %rcx;
+    popq %rbx;
+    popq %rax;
+    ret;
+
 IDT_S_HANDLER:
-    //some_push
     movq %rsp, %rdi;
     call idt_c_handler;
-    //some pop
+    call LOAD_REGISTERS;
     add $16, %rsp;
     iretq    
 
 
-#define Exception(no)         \
-        entry##no:            \
-            push $(no);       \
-            jmp IDT_S_HANDLER;\
+#define Exception(no)           \
+        entry##no:              \
+            call SAVE_REGISTERS;\
+            push $(no);         \
+            jmp IDT_S_HANDLER;  \
 
-#define Interrupt(no)         \
-        entry##no:            \
-            push $(0);        \
-            push $(no);       \
-            jmp IDT_S_HANDLER;\
+#define Interrupt(no)           \
+        entry##no:              \
+            push $(0);          \
+            call SAVE_REGISTERS;\
+            push $(no);         \
+            jmp IDT_S_HANDLER;  \
         
         
 Interrupt(0)
