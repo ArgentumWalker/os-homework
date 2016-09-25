@@ -1,21 +1,25 @@
-#define Exception(no) \
-        entry##no:
-        push $(no) \
-        jmp FNAME
+.global tbl
 
-#define Interrupt(no) \
-        entry##no:
-        push $(0)
-        push $(no) \
-        jmp IDT_S_HANDLER
-        
 IDT_S_HANDLER:
     //some_push
-    movq %rsp, %rdi
-    call IDT_C_handler
+    movq %rsp, %rdi;
+    call idt_c_handler;
     //some pop
-    addq $16 %rsp
+    add $16, %rsp;
     iretq    
+
+
+#define Exception(no)         \
+        entry##no:            \
+            push $(no);       \
+            jmp IDT_S_HANDLER;\
+
+#define Interrupt(no)         \
+        entry##no:            \
+            push $(0);        \
+            push $(no);       \
+            jmp IDT_S_HANDLER;\
+        
         
 Interrupt(0)
 Interrupt(1)
@@ -118,7 +122,6 @@ Interrupt(97)
 Interrupt(98)
 Interrupt(99)
 
-.global
 tbl:
     .quad entry0
     .quad entry1
