@@ -4,17 +4,31 @@
 #include "IDT.h"
 #include "IDT_handlers.h"
 
-#define i16 __uint128_t 
-#define TYPE_F (uint64_t)0x0
+#define INTERRUPT_GATE (uint64_t)0xe
+
+struct IDTDesc{
+   uint16_t offset_1; // offset bits 0..15
+   uint16_t selector; // a code segment selector in GDT or LDT
+   uint8_t ist;       // bits 0..2 holds Interrupt Stack Table offset, rest of bits zero.
+   uint8_t type_attr; // type and attributes
+   uint16_t offset_2; // offset bits 16..31
+   uint32_t offset_3; // offset bits 32..63
+   uint32_t zero;     // reserved
+}__attribute__((__packed__ ));
 
 extern uint64_t tbl[];
-i16 idt_table[256];
+struct IDTDesc idt_table[100];
 uint32_t PART = -1;
 
 void IDT_init() {
     for (int i = 0; i < 100; i++) {
-        idt_table[i] = 0;
-        idt_table[i] = ((i16)(tbl[i] >> 32) << 64) | ((i16)(((uint64_t)1 << (7+8)) | (TYPE_F << 6)) << 48) | ((i16)(tbl[i] & PART) << 16) | ((i16)(KERNEL_CS));
+        idt_table[i].offset_1 = tbl[i];
+        idt_table[i].selector = KERNEL_CS;
+        idt_table[i].ist = 1 << 7;
+        idt_table[i].type_attr = INTERRUPT_GATE << 4;
+        idt_table[i].offset_2 = tbl[i] >> 16;
+        idt_table[i].offset_3 = tbl[i] >> 32;
+        idt_table[i].zero = 0;
     }
     struct desc_table_ptr ptr = {(uint64_t)(idt_table), 100};
     write_idtr(&ptr);
