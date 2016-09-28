@@ -10,6 +10,11 @@ void handler1() {
     //not implemented
 }
 
+//PIT interruption handler
+void handler32() {
+    outToCOMport("Tick-tock...\n");
+}
+
 void handler99() {
     outToCOMport("Interruption test\n");
 }
@@ -22,6 +27,7 @@ void handler99() {
 void idt_c_handler(struct InterruptionStackframe* ptr) {
     call_handler(0);
     call_handler(1);
+    call_handler(32);
     call_handler(99);
     //Do nothing
 }
