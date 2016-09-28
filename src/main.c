@@ -13,8 +13,10 @@ static void doTests(void)
 
 void main(void)
 {
+    disableInterruptions();
 	initCOMport();
 	initIDT();
+    enableInterruptions();
 
 	doTests();
 
