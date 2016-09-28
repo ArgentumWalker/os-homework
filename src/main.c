@@ -1,6 +1,7 @@
 #include "innerTests.h"
 #include "LIO.h"
 #include "IDT.h"
+#include "PIT.h"
 
 static void doTests(void)
 {
@@ -13,11 +14,10 @@ static void doTests(void)
 
 void main(void)
 {
-    disableInterruptions();
-	initCOMport();
+    initCOMport();
 	initIDT();
-    enableInterruptions();
-
+    initPIT();
+        
 	doTests();
 
 	while (1);
