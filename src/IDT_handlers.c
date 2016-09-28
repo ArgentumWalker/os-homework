@@ -20,7 +20,6 @@ void handler30() {
         }\
 
 void idt_c_handler(struct InterruptionStackframe* ptr) {
-    outToCOMport("Catch an exception\n");
     call_handler(0);
     call_handler(1);
     call_handler(30);

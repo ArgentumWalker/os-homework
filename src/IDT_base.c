@@ -47,7 +47,7 @@ void initIDT() {
         idt_table[i].zero0 = 0;
         idt_table[i].type_attr = (1 << 7) | (INTERRUPT_GATE);
         idt_table[i].offset_2 = (tbl[i] >> 16) & 0xffff;
-        idt_table[i].offset_3 = (tbl[i] >> 32) & 0xffff;
+        idt_table[i].offset_3 = (tbl[i] >> 32) & 0xffffffff;
         idt_table[i].zero1 = 0;
     }
     struct desc_table_ptr ptr = {sizeof(idt_table) - 1, (uint64_t)(idt_table)};

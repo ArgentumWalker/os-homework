@@ -6,8 +6,7 @@ void comPortTest() {
 }
 
 void interruptionsTest() {
-    outToCOMport("Interruption test begins\n");
-    __asm__ volatile("int %0\n"::"N"((30)));
+    __asm__ volatile("int $30":::);
 }
 
 void callTests() {

@@ -19,8 +19,8 @@ struct InterruptionStackframe {
     uint64_t rbx;
     uint64_t rax;
     //other information
-    uint64_t err_code;
     uint64_t idt_position;
+    uint64_t err_code;
 }__attribute__((packed));
 
 void initIDT();
