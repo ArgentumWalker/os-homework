@@ -1,10 +1,11 @@
 #include "innerTests.h"
 #include "LIO.h"
+#include "IDT.h"
 
 static void doTests(void)
 {
 #ifdef DEBUG
-    callTests();    
+    callTests();
 #endif
 }
 
@@ -12,11 +13,10 @@ static void doTests(void)
 
 void main(void)
 {
+    disableInterruptions();
 	initCOMport();
-
-	struct desc_table_ptr ptr = {0, 0};
-
-	write_idtr(&ptr);
+	initIDT();
+    enableInterruptions();
 
 	doTests();
 
