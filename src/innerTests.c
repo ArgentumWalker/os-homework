@@ -6,7 +6,7 @@ void comPortTest() {
 }
 
 void interruptionsTest() {
-    __asm__ volatile("int $30":::);
+    __asm__ volatile("int $99":::);
 }
 
 void callTests() {

@@ -10,7 +10,7 @@ void handler1() {
     //not implemented
 }
 
-void handler30() {
+void handler99() {
     outToCOMport("Interruption test\n");
 }
 
@@ -22,7 +22,7 @@ void handler30() {
 void idt_c_handler(struct InterruptionStackframe* ptr) {
     call_handler(0);
     call_handler(1);
-    call_handler(30);
+    call_handler(99);
     //Do nothing
 }
 
