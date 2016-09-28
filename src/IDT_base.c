@@ -33,9 +33,9 @@ void initPIC() {
     out8(MASTER_PIC_DATA_PORT, 0xff);
     outToCOMport(">Master PIC initiated\n");
     out8(SLAVE_PIC_COMMAND_PORT, 0x11);
-    out8(SLAVE_PIC_COMMAND_PORT, 40);
-    out8(SLAVE_PIC_COMMAND_PORT, 0x02);
-    out8(SLAVE_PIC_COMMAND_PORT, 0x01);
+    out8(SLAVE_PIC_DATA_PORT, 40);
+    out8(SLAVE_PIC_DATA_PORT, 0x02);
+    out8(SLAVE_PIC_DATA_PORT, 0x01);
     out8(SLAVE_PIC_DATA_PORT, 0xff);
     outToCOMport(">Slave PIC initiated\n");
 }
@@ -70,4 +70,7 @@ void setMasterPICInterruptions(char mask) {
 void setSlavePICInterruptions(char mask) {
     out8(SLAVE_PIC_DATA_PORT, mask);
 }
-
+void endOfInterruptionPIC() {
+    out8(SLAVE_PIC_COMMAND_PORT, 0x20);
+    out8(MASTER_PIC_COMMAND_PORT, 0x20);
+}

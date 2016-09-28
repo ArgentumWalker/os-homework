@@ -30,5 +30,6 @@ void enableInterruptions();
 
 void setMasterPICInterruptions(char mask); 
 void setSlavePICInterruptions(char mask);
+void endOfInterruptionPIC();
 
 #endif

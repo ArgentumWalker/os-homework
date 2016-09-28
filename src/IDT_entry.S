@@ -1,5 +1,6 @@
 .global tbl
 .extern idt_c_handler;
+.extern endOfInterruptionPIC
 
 #define SAVE_REGISTERS\
     pushq %rax;\
@@ -40,6 +41,7 @@ IDT_S_HANDLER:
     call idt_c_handler;
     LOAD_REGISTERS;
     add $16, %rsp;
+    call endOfInterruptionPIC;
     iretq    
 
 
