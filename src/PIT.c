@@ -6,9 +6,9 @@
 #define PIT_COMMAND_PORT 0x43
 #define PIT_DATA_PORT 0x40
 
-void initPit() {
+void initPIT() {
     out8(PIT_COMMAND_PORT, (RATE_GENERATOR_MODE << 5) | (0x3 << 3));
-    setPitFreq(1)
+    setPitFreq(1);
 }
 
 void setPitFreq(uint16_t freq) {
