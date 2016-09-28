@@ -12,9 +12,14 @@ void handler1() {
 
 //PIT interruption handler
 void handler32() {
-    outToCOMport("Tick-tock...\n");
+    static uint8_t i = 0;
+    if (++i == 20) {
+        outToCOMport("Tick-tock...\n");
+        i = 0;
+    }
 }
 
+//Test interruption handler
 void handler99() {
     outToCOMport("Interruption test\n");
 }

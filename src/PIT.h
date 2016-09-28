@@ -3,6 +3,6 @@
 #include<stdint.h> 
 
 void initPIT();
-void setPitFreq(uint16_t freq);
+void setPitFreq(uint32_t freq);
 
 #endif

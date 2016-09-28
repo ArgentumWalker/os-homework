@@ -1,6 +1,7 @@
 #include "innerTests.h"
 #include "LIO.h"
 #include "IDT.h"
+#include "PIT.h"
 
 void comPortTest() {
     outToCOMport("COM port test\n");
@@ -11,7 +12,9 @@ void interruptionsTest() {
 }
 
 void pitTest() {
-    setMasterPICInterruptions(~0x1);
+    outToCOMport("Start PIT test\n");
+    setMasterPICInterruptions(~0x01);
+    initPIT();
 }
 
 void callTests() {

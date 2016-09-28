@@ -17,6 +17,7 @@ void main(void)
     initCOMport();
 	initIDT();
     initPIT();
+    enableInterruptions();
         
 	doTests();
 
