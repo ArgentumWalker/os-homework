@@ -8,6 +8,7 @@ static void doTests(void)
 #ifdef DEBUG
     callTests();
 #endif
+    callTests();
 }
 
 #include <desc.h>
