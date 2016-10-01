@@ -6,22 +6,28 @@
 #define BUFFER_SIZE 255
 #define PARSE_BUFFER_SIZE 31
     
-#define UNSIGNED_TYPE *format == 'u' || *format == 'x' || *format != 'o'
+#define UNSIGNED_TYPE *format == 'u' || *format == 'x' || *format == 'o'
     
 #define CHECK_INT_TYPE(ARG_GET)\
     uint64_t num;\
     if (!(UNSIGNED_TYPE)) {\
         int64_t arg;\
-        if (special_type <= -2)\
+        if (special_type <= -2){\
+            outToCOMport("1");\
             ARG_GET(int)\
-        if (special_type == -1)\
+        }\
+        if (special_type == -1){\
             ARG_GET(int)\
-        if (special_type == 0)\
+        }\
+        if (special_type == 0){\
             ARG_GET(int)\
-        if (special_type == 1)\
+        }\
+        if (special_type == 1){\
             ARG_GET(long)\
-        if (special_type >= 2)\
+        }\
+        if (special_type >= 2){\
             ARG_GET(long long)\
+        }\
         if (arg < 0) {\
             sign = -1;\
             num = -arg;\
@@ -31,16 +37,21 @@
     }\
     if (UNSIGNED_TYPE) {\
         uint64_t arg;\
-        if (special_type <= -2)\
+        if (special_type <= -2){\
             ARG_GET(int)\
-        if (special_type == -1)\
+        }\
+        if (special_type == -1){\
             ARG_GET(int)\
-        if (special_type == 0)\
+        }\
+        if (special_type == 0){\
             ARG_GET(unsigned int)\
-        if (special_type == 1)\
+        }\
+        if (special_type == 1){\
             ARG_GET(unsigned long)\
-        if (special_type >= 2)\
+        }\
+        if (special_type >= 2){\
             ARG_GET(unsigned long long)\
+        }\
         num = arg;\
     }\
     arg = num;
@@ -70,7 +81,7 @@
         parse_buffer[pbuff_count] = '-';\
         pbuff_count++;\
     }\
-    for (int l = 0, r = pbuff_count - 1; l != r; l++, r--) {\
+    for (int l = 0, r = pbuff_count - 1; l < r; l++, r--) {\
         char tmp = parse_buffer[l];\
         parse_buffer[l] = parse_buffer[r];\
         parse_buffer[r] = tmp; \
@@ -97,7 +108,7 @@
             count++;\
         } else {\
             if (special) {\
-                if (*format == 'd' || *format == 'i' || *format == 'u' || *format == '0' || *format == 'x') {\
+                if (*format == 'd' || *format == 'i' || *format == 'u' || *format == 'o' || *format == 'x') {\
                     uint64_t arg;\
                     int sign = 1;\
                     pbuff_count = 0;\
@@ -111,13 +122,16 @@
                     if (*format == 'd' || *format == 'i' || *format == 'u') {\
                         PARSE_INT(10);\
                     }\
-                    if (buff_count + pbuff_count > BUFFER_SIZE)\
+                    if (buff_count + pbuff_count > BUFFER_SIZE){\
                         OUTPUT;\
+                    }\
                     for (int i = 0; i < pbuff_count; i++) {\
                         buffer[buff_count + i] = parse_buffer[i];\
                     }\
                     count += pbuff_count;\
                     buff_count += pbuff_count;\
+                    special = 0;\
+                    special_type = 0;\
                 }\
                 if (*format == 'c') {\
                     char arg;\
@@ -125,6 +139,8 @@
                     buffer[buff_count] = arg;\
                     buff_count++;\
                     count++;\
+                    special = 0;\
+                    special_type = 0;\
                 }\
                 if (*format == 's') {\
                     char* arg;\
@@ -134,9 +150,12 @@
                         buff_count++;\
                         count++;\
                         arg++;\
-                        if (buff_count == BUFFER_SIZE) \
+                        if (buff_count == BUFFER_SIZE) {\
                             OUTPUT;\
+                        }\
                     }\
+                    special = 0;\
+                    special_type = 0;\
                 }\
                 if (*format == 'h') {\
                     special_type -= 1;\
@@ -144,8 +163,6 @@
                 if (*format == 'l') {\
                     special_type += 1;\
                 }\
-                special = 0;\
-                special_type = 0;\
                 format++;\
             } else {\
                 if (*format == '%') {\
@@ -162,20 +179,23 @@
                 format++;\
             }\
         }\
-        if (buff_count == BUFFER_SIZE)\
+        if (buff_count == BUFFER_SIZE){\
             OUTPUT;\
+        }\
     }\
+    OUTPUT;\
     ARGS_CLOSE;\
     return count;
     
 #define ELIPSIS_ARGS_INIT\
-    void* arg_ptr = (void*)(((uintptr_t*)&format) + 1);
+    va_list args;\
+    va_start(args, format);\
     
 #define ELIPSIS_ARG_GET(ARG_TYPE)\
-    arg = *(ARG_TYPE*)arg_ptr;\
-    arg_ptr = (ARG_TYPE*)arg_ptr + 1;
+    VA_LIST_ARG_GET(ARG_TYPE);
 
-#define ELIPSIS_ARGS_CLOSE
+#define ELIPSIS_ARGS_CLOSE\
+    VA_LIST_ARGS_CLOSE;
 
 #define VA_LIST_ARGS_INIT\
     
@@ -202,7 +222,8 @@
         *(s + pos) = buffer[i];\
         pos++;\
     } \
-    *(s + pos) = 0;
+    *(s + pos) = 0;\
+    buff_count = 0;
     
     int printf(const char* format, ...) {
         PRINT(ELIPSIS_ARGS_INIT, ELIPSIS_ARG_GET, ELIPSIS_ARGS_CLOSE, COM_PORT_OUTPUT_INIT, COM_PORT_OUTPUT);
