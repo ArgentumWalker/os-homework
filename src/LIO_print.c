@@ -12,8 +12,16 @@
     uint64_t num;\
     if (!(UNSIGNED_TYPE)) {\
         int64_t arg;\
+        if (special_type <= -2)\
+            ARG_GET(int)\
+        if (special_type == -1)\
+            ARG_GET(int)\
         if (special_type == 0)\
             ARG_GET(int)\
+        if (special_type == 1)\
+            ARG_GET(long)\
+        if (special_type >= 2)\
+            ARG_GET(long long)\
         if (arg < 0) {\
             sign = -1;\
             num = -arg;\
@@ -23,8 +31,16 @@
     }\
     if (UNSIGNED_TYPE) {\
         uint64_t arg;\
-        if (special_type == 0 && (UNSIGNED_TYPE))\
+        if (special_type <= -2)\
+            ARG_GET(int)\
+        if (special_type == -1)\
+            ARG_GET(int)\
+        if (special_type == 0)\
             ARG_GET(unsigned int)\
+        if (special_type == 1)\
+            ARG_GET(unsigned long)\
+        if (special_type >= 2)\
+            ARG_GET(unsigned long long)\
         num = arg;\
     }\
     arg = num;
