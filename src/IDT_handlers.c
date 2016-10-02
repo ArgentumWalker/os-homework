@@ -34,7 +34,9 @@ void idt_c_handler(struct InterruptionStackframe* ptr) {
     call_handler(1);
     call_handler(32);
     call_handler(99);
-    //Do nothing
+    if (ptr->idt_position > 31 && ptr->idt_position < 48) {
+        endOfInterruptionPIC();
+    }
 }
 
 
