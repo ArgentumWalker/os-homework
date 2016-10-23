@@ -30,14 +30,14 @@ void initMemoryMap() {
         struct MemoryMapNode* currentNode = (struct MemoryMapNode*) pos;
         pos += sizeof(struct MemoryMapNode) + currentNode->size;
         if (kernelBegin > currentNode->base_addr + currentNode->length - 1 || kernelBegin + kernelLength - 1 < currentNode->base_addr) {
-            addNodeToMemmap(actualMemoryMap, currentNode);
+            addNodeToMemmap(&actualMemoryMap, *currentNode);
             continue;
         }
         if (kernelBegin > currentNode->base_addr) {
-            addNodeToMemmap(actualMemoryMap, makeNode(currentNode->base_addr, kernelBegin - currentNode->base_addr, currentNode->type));
+            addNodeToMemmap(&actualMemoryMap, makeNode(currentNode->base_addr, kernelBegin - currentNode->base_addr, currentNode->type));
         }
         if (kernelBegin + kernelLength < currentNode->base_addr + currentNode->length) {
-            addNodeToMemmap(actualMemoryMap, makeNode(kernelBegin + kernelLength, currentNode->base_addr + currentNode->length - (kernelBegin + kernelLength), currentNode->type));
+            addNodeToMemmap(&actualMemoryMap, makeNode(kernelBegin + kernelLength, currentNode->base_addr + currentNode->length - (kernelBegin + kernelLength), currentNode->type));
         }
     }
 }
