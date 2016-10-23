@@ -3,6 +3,8 @@
 #define MB_HEADER_MAGIC	0x1BADB002
 #define MB_HEADER_FLAGS	((1 << 16) | (1 << 1))
 #define MB_HEADER_CKSUM	-(MB_HEADER_MAGIC + MB_HEADER_FLAGS)
+.global multibootHeader
+.global multibootInfo
 
 	.section .bootstrap, "ax"
 	.code32
@@ -16,15 +18,19 @@ start32:
 
 
 	.align 16
-multiboot_header:
+multibootHeader:
 	.long MB_HEADER_MAGIC
 	.long MB_HEADER_FLAGS
 	.long MB_HEADER_CKSUM
-	.long multiboot_header
+	.long multibootHeader
 	.long text_phys_begin
 	.long data_phys_end
 	.long bss_phys_end
 	.long start32
+
+
+multibootInfo:
+    .long 0xffff //Just something, we need only name
 
 
 	.align 16
@@ -54,6 +60,7 @@ idt_ptr:
 stack_top:
 
 1:
+    movl %ebx, multibootInfo //Get pointer to memmap_info
 	movl $stack_top, %esp
 	pushl %eax
 	call videomem_clrscr

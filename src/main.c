@@ -2,13 +2,13 @@
 #include "LIO.h"
 #include "IDT.h"
 #include "PIT.h"
+#include "memmap.h"
 
 static void doTests(void)
 {
 #ifdef DEBUG
     callTests();
 #endif
-    callTests();
 }
 
 #include <desc.h>
@@ -19,7 +19,9 @@ void main(void)
 	initIDT();
     initPIT();
     enableInterruptions();
-        
+    initMemoryMap();
+    
+    showMemoryMap();    
 	doTests();
 
 	while (1);
