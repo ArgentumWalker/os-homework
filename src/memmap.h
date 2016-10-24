@@ -2,7 +2,7 @@
 #define _MEMMAP_H_
 #include <stdint.h>
 extern uint32_t multibootHeader[];
-extern uint32_t multibootInfo[];
+extern uint64_t multibootInfo;
 extern struct MultibootHeader* multibootHeaderPtr;
 extern struct MultibootInfo* multibootInfoPtr;
 extern struct MemoryMap actualMemoryMap;

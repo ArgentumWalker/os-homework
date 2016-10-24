@@ -23,6 +23,7 @@ void initMemoryMap() {
     multibootHeaderPtr = (struct MultibootHeader*)multibootHeader;
     multibootInfoPtr = (struct MultibootInfo*)multibootInfo;
     actualMemoryMap.node_count = 0;
+    
     //Put Kernel to MemMap
     uintptr_t kernelBegin = multibootHeaderPtr->load_addr;
     uintptr_t kernelLength = multibootHeaderPtr->bss_end_addr - kernelBegin + 1;
@@ -30,7 +31,7 @@ void initMemoryMap() {
     uintptr_t pos = multibootInfoPtr->mmap_addr;
     while (pos < multibootInfoPtr->mmap_addr + multibootInfoPtr->mmap_length) {
         struct MemoryMapNode* currentNode = (struct MemoryMapNode*) pos;
-        pos += sizeof(struct MemoryMapNode) + currentNode->size;
+        pos += currentNode->size + sizeof(currentNode->size);
         if (kernelBegin > currentNode->base_addr + currentNode->length - 1 || kernelBegin + kernelLength - 1 < currentNode->base_addr) {
             addNodeToMemmap(&actualMemoryMap, *currentNode);
             continue;
@@ -81,4 +82,10 @@ void showMemoryMap() {
     printf(">vbe_interface_seg: %x\n", (unsigned int)multibootInfoPtr->vbe_interface_seg);
     printf(">vbe_interface_off: %x\n", (unsigned int)multibootInfoPtr->vbe_interface_off);
     printf(">vbe_interface_len: %x\n", (unsigned int)multibootInfoPtr->vbe_interface_len);
+    printf("\n\nMemmapNodes: \n");
+    for (unsigned int i = 0; i < actualMemoryMap.node_count; i++) {
+        printf(">node %u\n", i);
+        printf(">>addr:     %llx\n", actualMemoryMap.nodes[i].base_addr);
+        printf(">>length:   %llx\n", actualMemoryMap.nodes[i].length); 
+    }
 }

@@ -30,8 +30,8 @@ multibootHeader:
 
 
 multibootInfo:
-    .long 0xffff //Just something, we need only name
-
+    .long 0x0 //Just something, we need only name
+	.space 0x100
 
 	.align 16
 gdt:
