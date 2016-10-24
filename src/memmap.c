@@ -1,5 +1,6 @@
 #include "memmap.h"
 #include "LIO.h"
+#include "buddy.h"
 
 struct MultibootHeader* multibootHeaderPtr;
 struct MultibootInfo* multibootInfoPtr;
@@ -21,6 +22,7 @@ struct MemoryMapNode makeNode(uintptr_t begin, uintptr_t length, uint32_t type) 
 void initMemoryMap() {
     multibootHeaderPtr = (struct MultibootHeader*)multibootHeader;
     multibootInfoPtr = (struct MultibootInfo*)multibootInfo;
+    actualMemoryMap.node_count = 0;
     //Put Kernel to MemMap
     uintptr_t kernelBegin = multibootHeaderPtr->load_addr;
     uintptr_t kernelLength = multibootHeaderPtr->bss_end_addr - kernelBegin + 1;
@@ -40,6 +42,7 @@ void initMemoryMap() {
             addNodeToMemmap(&actualMemoryMap, makeNode(kernelBegin + kernelLength, currentNode->base_addr + currentNode->length - (kernelBegin + kernelLength), currentNode->type));
         }
     }
+    initBuddy();
 }
 
 void showMemoryMap() {
