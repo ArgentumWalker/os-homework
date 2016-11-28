@@ -29,23 +29,28 @@ struct rb_tree memory_map;
 
 static struct memory_node *balloc_alloc_node(void)
 {
+    lockThread();
 	BUG_ON(list_empty(&balloc_free_list) &&
 				"Please, increase BALLOC_MAX_RANGES constant");
 
 	struct list_head *node = balloc_free_list.next;
 
 	list_del(node);
+    unlockThread();
 	return LL2MEMORY_NODE(node);
 }
 
 static void balloc_free_node(struct memory_node *node)
 {
+    lockThread();
 	list_add(&node->link.ll, &balloc_free_list);
+    unlockThread();
 }
 
 static void __balloc_add_range(struct rb_tree *tree,
 			unsigned long long from, unsigned long long to)
 {
+    lockThread();
 	struct rb_node **plink = &tree->root;
 	struct rb_node *parent = 0;
 
@@ -84,11 +89,13 @@ static void __balloc_add_range(struct rb_tree *tree,
 		rb_erase(&next->link.rb, tree);
 		balloc_free_node(next);
 	}
+    unlockThread();
 }
 
 static void __balloc_remove_range(struct rb_tree *tree,
 			unsigned long long from, unsigned long long to)
 {
+    lockThread();
 	struct rb_node *link = tree->root;
 	struct memory_node *ptr = 0;
 
@@ -115,11 +122,13 @@ static void __balloc_remove_range(struct rb_tree *tree,
 		balloc_free_node(ptr);
 		ptr = next;
 	}
+    unlockThread();
 }
 
 uintptr_t __balloc_alloc(size_t size, uintptr_t align,
 			uintptr_t from, uintptr_t to)
 {
+    lockThread();
 	struct rb_tree *tree = &free_ranges;
 	struct rb_node *link = tree->root;
 	struct memory_node *ptr = 0;
@@ -149,12 +158,14 @@ uintptr_t __balloc_alloc(size_t size, uintptr_t align,
 			if (ptr->end > addr + size)
 				__balloc_add_range(tree, addr + size, ptr->end);
 			balloc_free_node(ptr);
+			unlockThread();
 			return addr;
 		}
 
 		ptr = RB2MEMORY_NODE(rb_next(&ptr->link.rb));
 	}
 
+    unlockThread();
 	return to;
 }
 
@@ -180,10 +191,13 @@ void balloc_free(uintptr_t begin, uintptr_t end)
 
 static void balloc_setup_nodes(void)
 {
+    lockThread();
 	list_init(&balloc_free_list);
 
 	for (int i = 0; i != BALLOC_MAX_RANGES; ++i)
 		balloc_free_node(&balloc_nodes[i]);
+		
+    unlockThread();
 }
 
 /* Initially we put all ranges in both memory map tree and free
@@ -196,6 +210,7 @@ static void balloc_setup_nodes(void)
  * the memory map won't be in the free ranges tree. */
 static void balloc_parse_mmap(const struct mboot_info *info)
 {
+    lockThread();
 	BUG_ON((info->flags & (1ul << 6)) == 0);
 
 	const uintptr_t begin = info->mmap_addr;
@@ -235,10 +250,13 @@ static void balloc_parse_mmap(const struct mboot_info *info)
 	}
 
 	__balloc_remove_range(&free_ranges, kbegin, kend);
+	
+    unlockThread();
 }
 
 static void __balloc_dump_ranges(const struct rb_tree *tree)
 {
+    lockThread();
 	const struct memory_node *node = RB2MEMORY_NODE(rb_leftmost(tree));
 
 	while (node) {
@@ -247,14 +265,17 @@ static void __balloc_dump_ranges(const struct rb_tree *tree)
 					(unsigned long long)node->end);
 		node = RB2MEMORY_NODE(rb_next(&node->link.rb));
 	}
+    unlockThread();
 }
 
 static void balloc_dump_ranges(void)
 {
+    lockThread();
 	printf("known memory ranges:\n");
 	__balloc_dump_ranges(&memory_map);
 	printf("free memory ranges:\n");
 	__balloc_dump_ranges(&free_ranges);
+    unlockThread();
 }
 
 uintptr_t balloc_memory(void)
@@ -267,7 +288,9 @@ uintptr_t balloc_memory(void)
 
 void balloc_setup(const struct mboot_info *info)
 {
+    lockThread();
 	balloc_setup_nodes();
 	balloc_parse_mmap(info);
 	balloc_dump_ranges();
+    unlockThread();
 }

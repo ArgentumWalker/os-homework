@@ -15,19 +15,20 @@ extern ThreadInfo currentThread;
 ThreadInfo* newThread();
 void finishThread(ThreadInfo* thread);
 void switchThread();
+void joinThread(struct ThreadInfo);
 
 #define beginSyncronize()\
-    static struct Mutex* __syncronizeMutex = newMutex();\
-    lock(__syncronizeMutex)
-    
+    static struct Mutex __syncronizeMutexValue;\
+    lock(__syncronizeMutex&)
+
 #define endSynchronize()\
-    unlock(__synchronizeMutex)
-    
+    unlock(__synchronizeMutex&)
+
 #define lockThread() \
     beginSynchronize();\
     currentThread->canSwitchThread = 0;\
     currentThread->threadLockCount++
-    
+
 #define unlockThread() \
     currentThread->threadLockCount--;\
     if (currentThread->threadLockCount < 0) {\
@@ -47,5 +48,11 @@ struct Mutex* newMutex();
 void lock(struct Mutex* m);
 void unlock(struct Mutex* m);
 void freeMutex(struct Mutex* m)
+
+struct Notifyer {
+    struct ThreadInfo waiters[MAX_THREAD_COUNT];
+}
+
+void 
 
 #endif
