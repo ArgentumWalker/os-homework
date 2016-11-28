@@ -13,12 +13,12 @@ SRC := ./src
 C_SOURCES := $(wildcard $(SRC)/*.c)
 C_OBJECTS := $(C_SOURCES:.c=.o)
 C_DEPS := $(C_SOURCES:.c=.d)
-S_SOURCES := $(wildcard $(SRC)/*.S)
+S_SOURCES := $(filter-out $(SRC)/entry.S, $(wildcard $(SRC)/*.S)) $(SRC)/entry.S
 S_OBJECTS := $(S_SOURCES:.S=.o)
 S_DEPS := $(S_SOURCES:.S=.d)
 
 OBJ := $(C_OBJECTS) $(S_OBJECTS)
-DEP := $(C_DESP) $(S_DEPS)
+DEP := $(C_DEPS) $(S_DEPS)
 
 all: kernel
 
@@ -31,8 +31,11 @@ $(S_OBJECTS): %.o: %.S
 $(C_OBJECTS): %.o: %.c
 	$(CC) $(CFLAGS) -I$(INC) -g -MMD -c $< -o $@
 
+$(SRC)/entry.S: gen_entries.py
+	python3 gen_entries.py > $@
+
 -include $(DEP)
 
 .PHONY: clean
 clean:
-	rm -f kernel $(OBJ) $(DEP)
+	rm -f kernel $(SRC)/entry.S $(OBJ) $(DEP)

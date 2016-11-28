@@ -1,2 +1,3 @@
-src/main.o: src/main.c src/innerTests.h src/LIO.h inc/ioport.h src/IDT.h \
- src/PIT.h inc/desc.h
+src/main.o: src/main.c inc/serial.h inc/memory.h inc/list.h inc/kernel.h \
+ inc/balloc.h inc/rbtree.h inc/paging.h inc/debug.h inc/print.h \
+ inc/ints.h inc/alloc.h inc/time.h
