@@ -12,7 +12,7 @@
 static void qemu_gdb_hang(void)
 {
 #ifdef DEBUG
-	static volatile int wait = 1;
+	static volatile int wait = 0;
 
 	while (wait);
 #endif
@@ -43,11 +43,13 @@ static void test_threads() {
     struct ThreadInfo* thread3 = newThread(&threadWithMutex, (void*)mutex);
     struct ThreadInfo* thread4 = newThread(&notifyerWaiter, (void*)notifyer);
     struct ThreadInfo* thread5 = newThread(&notifyerSender, (void*)notifyer);
+    printf("Start threads\n");
     startThread(thread1);
     startThread(thread2);
     startThread(thread3);
     startThread(thread4);
     startThread(thread5);
+    printf("Join threads\n");
     joinThread(thread1);
     joinThread(thread2);
     joinThread(thread3);
@@ -58,6 +60,7 @@ static void test_threads() {
 
 static void test_kmap(void)
 {
+    lockThread();
 	const size_t count = 1024;
 	struct page **pages = mem_alloc(sizeof(*pages) * count);
 	size_t i;
@@ -82,10 +85,12 @@ static void test_kmap(void)
 
 	kunmap(ptr);
 	mem_free(pages);
+	unlockThread();
 }
 
 static void test_alloc(void)
 {
+    lockThread();
 	struct list_head head;
 	unsigned long count = 0;
 
@@ -111,6 +116,7 @@ static void test_alloc(void)
 	}
 
 	mem_alloc_shrink();
+	unlockThread();
 }
 
 static void test_slab(void)
@@ -118,7 +124,7 @@ static void test_slab(void)
 	struct list_head head;
 	struct mem_cache cache;
 	unsigned long count = 0;
-
+    lockThread();
 	list_init(&head);
 	mem_cache_setup(&cache, sizeof(head), sizeof(head));
 	while (1) {
@@ -142,13 +148,14 @@ static void test_slab(void)
 	}
 
 	mem_cache_release(&cache);
+	unlockThread();
 }
 
 static void test_buddy(void)
 {
 	struct list_head head;
 	unsigned long count = 0;
-
+    lockThread();
 	list_init(&head);
 	while (1) {
 		struct page *page = __page_alloc(0);
@@ -158,7 +165,7 @@ static void test_buddy(void)
 		++count;
 		list_add(&page->ll, &head);
 	}
-
+    
 	printf("Allocated %lu pages\n", count);
 
 	while (!list_empty(&head)) {
@@ -168,28 +175,46 @@ static void test_buddy(void)
 		list_del(&page->ll);
 		__page_free(page, 0);
 	}
+	unlockThread();
 }
 
 void main(void *bootstrap_info)
 {
 	qemu_gdb_hang();
 
-    initThreads();
 	serial_setup();
+    printf("Serial Initiated\n");
+    initThreads();
+    lockThread();
+    printf("Threads Initiated\n");
 	ints_setup();
+	printf("Interruptions initiated\n");
 	time_setup();
+	printf("Timer initiated\n");
 	balloc_setup(bootstrap_info);
+	printf("Balloc initiated\n");
 	paging_setup();
+	printf("Paging initiated\n");
 	page_alloc_setup();
+	printf("Page_alloc initiated\n");
 	mem_alloc_setup();
+	printf("Mem_alloc initiated\n");
 	kmap_setup();
+	printf("Kmap initiated\n");
+	unlockThread();
+	printf("Ready to tests\n");
 	enable_ints();
 
 	printf("Tests Begin\n");
+	printf("Buddy Test\n");
 	test_buddy();
+	printf("Slab Test\n");
 	test_slab();
+	printf("Alloc Test\n");
 	test_alloc();
+	printf("Kmap Test\n");
 	test_kmap();
+	printf("Threads Test\n");
 	test_threads();
 	printf("Tests Finished\n");
 

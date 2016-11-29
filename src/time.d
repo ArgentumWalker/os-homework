@@ -1,1 +1,2 @@
-src/time.o: src/time.c inc/time.h inc/ints.h inc/ioport.h inc/print.h
+src/time.o: src/time.c inc/time.h inc/ints.h inc/ioport.h inc/print.h \
+ inc/threads.h inc/print.h

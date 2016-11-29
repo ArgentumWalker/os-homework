@@ -1,8 +1,10 @@
 #ifndef _THREADS_H_
 #define _THREADS_H_
 
-#define MAX_THREAD_COUNT 10000l
+#define MAX_THREAD_COUNT 1000l
 #define STACK_SIZE 0x00f000l
+
+#include "print.h"
 
 void initThreads();
 
@@ -31,10 +33,15 @@ void joinThread(struct ThreadInfo*);
 
 #define beginSynchronize\
     static struct Mutex __synchronizeMutex;\
-    lock(&__synchronizeMutex)
+    if (currentThread -> threadLockCount == 0) {\
+        initiateMutex(&__synchronizeMutex);\
+        lock(&__synchronizeMutex);\
+    }
 
 #define endSynchronize\
-    unlock(&__synchronizeMutex)
+    if (currentThread -> threadLockCount == 0) {\
+        unlock(&__synchronizeMutex);\
+    }
 
 #define lockThread() \
     beginSynchronize;\
@@ -57,8 +64,7 @@ struct Mutex {
     int isLocked;
 };
 
-extern struct Mutex mutexInitializer;
-
+void initiateMutex(struct Mutex* mutex);
 struct Mutex* newMutex();
 void lock(struct Mutex* m);
 int isLocked(struct Mutex* m);

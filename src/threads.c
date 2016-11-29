@@ -1,6 +1,7 @@
 #include "threads.h"
 #include "alloc.h"
 #include "ioport.h"
+#include "ints.h"
 
 struct StackFrame {
   uint64_t r15;
@@ -35,13 +36,15 @@ void callThreadMain(void (*threadMain)(void*), void* arg) {
 //Work with thread queue
 void __addThreadToQueue(struct ThreadInfo* thread) {
     lockThread();
-    threadQueue[queueEnd++] = thread;
+    threadQueue[queueEnd] = thread;
+    queueEnd = (queueEnd + 1) % MAX_THREAD_COUNT;
     unlockThread();
 }
 
 struct ThreadInfo* __getNextThread() {
     lockThread();
-    struct ThreadInfo* thread = threadQueue[queuePos++];
+    struct ThreadInfo* thread = threadQueue[queuePos];
+    queuePos = (queuePos + 1) % MAX_THREAD_COUNT;
     if (thread -> threadState != THREAD_STATE_FINISHED) {
         __addThreadToQueue(thread);
     }
@@ -109,7 +112,11 @@ void finishThread(struct ThreadInfo* thread) {
 }
 
 void switchThread() {
+    disable_ints();
     if (currentThread -> canSwitchThread) {
+        if (currentThread -> threadState == THREAD_STATE_RUNNING) {
+            currentThread -> threadState = THREAD_STATE_RUNNABLE; //current Thread already at the end of queue
+        }
         lockThread();
         int notFound = 1;
         struct ThreadInfo* thread;
@@ -123,32 +130,37 @@ void switchThread() {
                 thread -> threadState = THREAD_STATE_RUNNABLE;
             }
         }
-        thread -> threadState = THREAD_STATE_RUNNING;
-        currentThread -> threadState = THREAD_STATE_RUNNABLE;
-        struct ThreadInfo* cur = currentThread;
-        currentThread = thread;
-        asm_switch_threads(&(cur->stackPtr), thread -> stackPtr);
         unlockThread();
+        thread -> threadState = THREAD_STATE_RUNNING;
+        if (currentThread != thread) {
+            struct ThreadInfo* cur = currentThread;
+            currentThread = thread;
+            asm_switch_threads(&(cur->stackPtr), thread -> stackPtr);
+            printf("Switch thread %d to thread %d\n", cur->id, thread->id);
+        }
     }
+    enable_ints();
 }
 void joinThread(struct ThreadInfo* thread) {
-    lockThread();
     if (thread -> threadState != THREAD_STATE_FINISHED) {
         wait(thread -> joinedThreadsNotifyer);
-        unlockThread();
-        switchThread();
-        return;
-    }
-    unlockThread();
-    
+    }    
 }
 
 //Mutex
 
+void initiateMutex(struct Mutex* mutex) {
+    for (int i = 0; i < MAX_THREAD_COUNT; i++) {
+        mutex -> claim[i] = 0;
+        mutex -> turn[i] = 0;
+    }
+    mutex -> isLocked = 0;
+}
+
 struct Mutex* newMutex() {
     lockThread();
     struct Mutex* mutex = (struct Mutex*) mem_alloc(sizeof(struct Mutex));
-    *mutex = mutexInitializer; 
+    initiateMutex(mutex); 
     unlockThread();
     return mutex;
 }
@@ -164,12 +176,13 @@ void lock(struct Mutex* m) {
         
         while (1) {
             int found = 0;
-            for (int thread = 0; !found && thread != MAX_THREAD_COUNT; thread++) {
+            for (int thread = 0; !found && thread < MAX_THREAD_COUNT; thread++) {
                 if (thread == currentThread->id) continue;
                 found = m->claim[thread] > level;
             }
             if (!found) break;
             if (m->turn[level] != currentThread->id) break;
+            printf("Turning into a sleep\n");
             currentThread->threadState = THREAD_STATE_WAIT_MUTEX; //Проснется только если MUTEX не залочен или может попасть на новый уровень.
             switchThread();
         }
@@ -177,6 +190,7 @@ void lock(struct Mutex* m) {
     m -> isLocked = 1;
 }
 int isLocked(struct Mutex* m) {
+    printf("isLocking check\n");
     return m -> isLocked;
 }
 void unlock(struct Mutex* m) {

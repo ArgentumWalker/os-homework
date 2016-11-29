@@ -2,6 +2,7 @@
 #include <ints.h>
 #include <ioport.h>
 #include <print.h>
+#include "threads.h"
 
 #define PIT_CMD		0x43
 #define PIT_CH0_DATA	0x40
@@ -43,6 +44,7 @@ static void pit_handler(int irq, struct frame *frame)
 {
 	(void) irq;
 	(void) frame;
+	switchThread();
 }
 
 void time_setup(void)
