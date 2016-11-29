@@ -11,9 +11,11 @@ void initThreads();
 struct ThreadInfo {
     int id;
     int canSwitchThread;
-    int threadLockCount;
+    int wantSwitchThread;
     int threadState;
-    struct Mutex* waitingFor;
+    int disabledInts;
+    struct Mutex* waitFor;
+    //struct __MutexNode mutexNode;
     #define THREAD_STATE_RUNNABLE   0l
     #define THREAD_STATE_RUNNING    1l
     #define THREAD_STATE_WAIT       2l
@@ -30,12 +32,14 @@ void finishThread(struct ThreadInfo* thread);
 void startThread(struct ThreadInfo*);
 void switchThread();
 void joinThread(struct ThreadInfo*);
-
+/*
+struct __MutexNode {
+    struct __MutexNode* _Atomic next;
+    atomic_int wait;
+}
+*/
 struct Mutex {
-    //int claim[MAX_THREAD_COUNT];
-    //int turn[MAX_THREAD_COUNT];
-    int select[MAX_THREAD_COUNT];
-    int ticket[MAX_THREAD_COUNT];
+    //struct __MutexNode* _Atomic tail;
     int isLocked;
 };
 
