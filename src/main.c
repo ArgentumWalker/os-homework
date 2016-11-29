@@ -184,7 +184,6 @@ void main(void *bootstrap_info)
 
 	serial_setup();
     initThreads();
-    lockThread();
 	ints_setup();
 	time_setup();
 	balloc_setup(bootstrap_info);
@@ -192,7 +191,6 @@ void main(void *bootstrap_info)
 	page_alloc_setup();
 	mem_alloc_setup();
 	kmap_setup();
-	unlockThread();
 	enable_ints();
 
 	printf("Tests Begin\n");

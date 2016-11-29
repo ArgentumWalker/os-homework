@@ -31,33 +31,6 @@ void startThread(struct ThreadInfo*);
 void switchThread();
 void joinThread(struct ThreadInfo*);
 
-#define beginSynchronize\
-    static struct Mutex __synchronizeMutex;\
-    if (currentThread -> threadLockCount == 0) {\
-        initiateMutex(&__synchronizeMutex);\
-        lock(&__synchronizeMutex);\
-    }
-
-#define endSynchronize\
-    if (currentThread -> threadLockCount == 0) {\
-        unlock(&__synchronizeMutex);\
-    }
-
-#define lockThread() \
-    beginSynchronize;\
-    currentThread->canSwitchThread = 0;\
-    currentThread->threadLockCount++
-
-#define unlockThread() \
-    currentThread->threadLockCount--;\
-    if (currentThread->threadLockCount < 0) {\
-        currentThread->threadLockCount = 0;\
-    }\
-    if (currentThread->threadLockCount == 0) {\
-        currentThread->canSwitchThread = 1;\
-    }\
-    endSynchronize
-
 struct Mutex {
     int claim[MAX_THREAD_COUNT];
     int turn[MAX_THREAD_COUNT];
@@ -72,6 +45,7 @@ void unlock(struct Mutex* m);
 void freeMutex(struct Mutex* m);
 
 struct Notifyer {
+    struct Mutex* mutex;
     struct ThreadInfo* waiters[MAX_THREAD_COUNT];
     int waitersCount;
 };

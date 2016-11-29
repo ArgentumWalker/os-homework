@@ -7,6 +7,7 @@
 #include <alloc.h>
 #include "threads.h"
 
+static struct Mutex __pagingMemoryMutex;
 
 struct page_pool {
 	uintptr_t (*get_page)(struct page_pool *);
@@ -49,7 +50,6 @@ static uintptr_t pml_size(int level)
 static int __pt_count_pages(uintptr_t begin, uintptr_t end, uintptr_t phys,
 			int lvl)
 {
-    lockThread();
 	const uintptr_t size = pml_size(lvl);
 	const uintptr_t mask = size - 1;
 
@@ -60,7 +60,6 @@ static int __pt_count_pages(uintptr_t begin, uintptr_t end, uintptr_t phys,
 	int count = 1;
 
 	if (lvl == 1) {
-        unlockThread();
 		return count;
 	}
 
@@ -78,7 +77,6 @@ static int __pt_count_pages(uintptr_t begin, uintptr_t end, uintptr_t phys,
 		phys += tomap;
 	}
 
-    unlockThread();
 	return count;
 }
 
@@ -92,7 +90,6 @@ static void __pt_map_pages(pte_t *pml, uintptr_t begin, uintptr_t end,
 			uintptr_t phys, pte_t flags,
 			int lvl, struct page_pool *pool)
 {
-    lockThread();
 	const pte_t pde_flags = __PTE_PRESENT | PTE_WRITE | PTE_USER;
 	const uintptr_t size = pml_size(lvl);
 	const uintptr_t mask = size - 1;
@@ -140,7 +137,6 @@ static void __pt_map_pages(pte_t *pml, uintptr_t begin, uintptr_t end,
 		begin += tomap;
 		phys += tomap;
 	}
-    unlockThread();
 }
 
 static void pt_map_pages(pte_t *pml4, uintptr_t begin, uintptr_t end,
@@ -180,7 +176,6 @@ static void flush_tlb_addr(const void *addr)
 
 static uintptr_t paging_setup_get_page(struct page_pool *pool)
 {
-    lockThread();
 	(void) pool;
 
 	/* Since we can't work without propper page table, when
@@ -196,13 +191,12 @@ static uintptr_t paging_setup_get_page(struct page_pool *pool)
 	BUG_ON(page == BOOTSTRAP_MEM &&
 			"Not enough free memory to setup initial page table");
 	memset(pte, 0, PAGE_SIZE);
-    unlockThread();
 	return page;
 }
 
 void paging_setup(void)
 {
-    lockThread();
+    initiateMutex(&__pagingMemoryMutex);
 	const uintptr_t phys_mem_limit = balloc_memory() & ~PAGE_MASK;
 	const uintptr_t mem_size = phys_mem_limit < MAX_PMEM_SIZE
 				? phys_mem_limit : MAX_PMEM_SIZE;
@@ -220,7 +214,6 @@ void paging_setup(void)
 	/* Not used yet, so we need to shut up compiler. */
 	(void) pool_put_page;
 	(void) pt_count_pages;
-    unlockThread();
 }
 
 
@@ -253,19 +246,16 @@ static void *kmap_addr(const struct kmap_range *range)
 
 static int kmap_order(size_t pages)
 {
-    lockThread();
 	size_t order = 0;
 
 	while (((size_t)1 << order) < pages && order != KMAP_ORDERS)
 		++order;
 		
-    unlockThread();
 	return order;
 }
 
 static struct kmap_range *kmap_find_free(int order, size_t pages)
 {
-    lockThread();
 	struct list_head *head = &kmap_free_ranges[order];
 	struct list_head *ptr = head->next;
 
@@ -274,17 +264,14 @@ static struct kmap_range *kmap_find_free(int order, size_t pages)
 					struct kmap_range, ll);
 
 		if (range->pages >= pages) {
-            unlockThread();
 			return range;
 		}
 	}
-    unlockThread();
 	return 0;
 }
 
 static void kmap_free_range(struct kmap_range *range, size_t pages)
 {
-    lockThread();
 	if (range > kmap_ranges) {
 		struct kmap_range *prev = range - (range - 1)->pages;
 
@@ -306,7 +293,6 @@ static void kmap_free_range(struct kmap_range *range, size_t pages)
 
 	(range + pages - 1)->pages = range->pages = pages;
 	list_add(&range->ll, &kmap_free_ranges[kmap_order(pages + 1) - 1]);
-    unlockThread();
 }
 
 static struct kmap_range *kmap_alloc_range(size_t pages)
@@ -314,7 +300,7 @@ static struct kmap_range *kmap_alloc_range(size_t pages)
 	const int start = kmap_order(pages);
 	struct kmap_range *range = 0;
 
-    lockThread();
+    lock(&__pagingMemoryMutex);
 	for (int order = start; order != KMAP_ORDERS; ++order) {
 		range = kmap_find_free(order, pages);
 
@@ -326,7 +312,7 @@ static struct kmap_range *kmap_alloc_range(size_t pages)
 		range = kmap_find_free(start - 1, pages);
 
 	if (!range) {
-        unlockThread();
+        unlock(&__pagingMemoryMutex);
 		return 0;
 	}
 
@@ -338,7 +324,7 @@ static struct kmap_range *kmap_alloc_range(size_t pages)
 
 	if (range_pages > pages)
 		kmap_free_range(range + pages, range_pages - pages);
-    unlockThread();
+    unlock(&__pagingMemoryMutex);
 	return range;
 }
 
@@ -356,7 +342,7 @@ void *kmap(struct page **pages, size_t count)
 	if (!range)
 		return 0;
 
-    lockThread();
+    lock(&__pagingMemoryMutex);
 	const uintptr_t pml4 = read_cr3();
 	pte_t *pte = va(pml4);
 
@@ -370,7 +356,7 @@ void *kmap(struct page **pages, size_t count)
 		flush_tlb_addr((const void *)addr);
 	}
 
-    unlockThread();
+    unlock(&__pagingMemoryMutex);
 	return kmap_addr(range);
 }
 
@@ -379,7 +365,7 @@ void kunmap(void *ptr)
 	if ((uintptr_t)ptr < KMAP_BEGIN || (uintptr_t)ptr >= KMAP_END)
 		return;
 
-    lockThread();
+    lock(&__pagingMemoryMutex);
 	const uintptr_t pml4 = read_cr3();
 
 	struct kmap_range *range = addr_kmap(ptr);
@@ -406,12 +392,11 @@ void kunmap(void *ptr)
 	}
 
 	kmap_free_range(range, range->pages);
-    unlockThread();
+    unlock(&__pagingMemoryMutex);
 }
 
 static uintptr_t kmap_setup_get_page(struct page_pool *pool)
 {
-    lockThread();
 	(void) pool;
 
 	const uintptr_t addr = page_alloc(0);
@@ -419,13 +404,11 @@ static uintptr_t kmap_setup_get_page(struct page_pool *pool)
 
 	BUG_ON(!addr);
 	memset(pte, 0, PAGE_SIZE);
-    unlockThread();
 	return addr;	
 }
 
 void kmap_setup(void)
 {
-    lockThread();
 	static const size_t size = sizeof(struct kmap_range);
 
 	struct page_pool pool = { &kmap_setup_get_page, 0 };
@@ -439,5 +422,4 @@ void kmap_setup(void)
 	for (int i = 0; i != KMAP_ORDERS; ++i)
 		list_init(&kmap_free_ranges[i]);
 	kmap_free_range(kmap_ranges, KMAP_PAGES);
-    unlockThread();
 }

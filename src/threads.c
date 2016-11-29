@@ -17,6 +17,8 @@ struct StackFrame {
 extern void asm_call_thread_main();
 extern void asm_switch_threads (void** oldThreadStackPointer, void* newThreadStackPointer);
 
+
+static struct Mutex __threadMutex;
 struct ThreadInfo* currentThread;
 static struct ThreadInfo kernelThread;
 static struct ThreadInfo* threads[MAX_THREAD_COUNT];
@@ -25,6 +27,7 @@ static int queueEnd, queuePos;
 static struct Notifyer kernelNotifyer;
 
 //Other functions
+void __addWaitor(struct Notifyer*);
 void callThreadMain(void (*threadMain)(void*), void* arg) {
   //out8(0x20, 1 << 5); //Master EOI
   //out8(0xA0, 1 << 5); //Slave EOI
@@ -36,20 +39,16 @@ void callThreadMain(void (*threadMain)(void*), void* arg) {
 
 //Work with thread queue
 void __addThreadToQueue(struct ThreadInfo* thread) {
-    lockThread();
     threadQueue[queueEnd] = thread;
     queueEnd = (queueEnd + 1) % MAX_THREAD_COUNT;
-    unlockThread();
 }
 
 struct ThreadInfo* __getNextThread() {
-    lockThread();
     struct ThreadInfo* thread = threadQueue[queuePos];
     queuePos = (queuePos + 1) % MAX_THREAD_COUNT;
     if (thread -> threadState != THREAD_STATE_FINISHED) {
         __addThreadToQueue(thread);
     }
-    unlockThread();
     return thread;
 }
 
@@ -73,7 +72,7 @@ void initThreads() {
 //Thread
 
 struct ThreadInfo* newThread(void (*threadMain)(void*), void* arg) {
-  lockThread();
+  lock(&__threadMutex);
   
   struct ThreadInfo *newThread = (struct ThreadInfo*) mem_alloc(sizeof(struct ThreadInfo));
   newThread->id = 0;
@@ -99,12 +98,12 @@ struct ThreadInfo* newThread(void (*threadMain)(void*), void* arg) {
   initialFrame->rbp = 0;
   initialFrame->retAddr = (uint64_t)(&asm_call_thread_main);
  
-  unlockThread(); 
+  unlock(&__threadMutex); 
   return newThread;
 }
 
 void startThread(struct ThreadInfo* thread) {
-    lockThread();
+    lock(&__threadMutex);
     thread -> threadState = THREAD_STATE_RUNNABLE;
     __addThreadToQueue(thread);
     if (queueEnd < queuePos) {
@@ -115,23 +114,23 @@ void startThread(struct ThreadInfo* thread) {
     for (int i = queuePos; i != queueEnd; i = (i + 1) % MAX_THREAD_COUNT) {
         printf("Thread %d\n", threadQueue[i]->id);
     }
-    unlockThread();
+    unlock(&__threadMutex);
 }
  
 void finishThread(struct ThreadInfo* thread) {
-    lockThread();
+    lock(&__threadMutex);
     thread -> threadState = THREAD_STATE_FINISHED;
     notifyAll(thread -> joinedThreadsNotifyer);
-    unlockThread();
+    unlock(&__threadMutex);
 }
 
 void switchThread() {
     //printf("Start switchThread\n");
+    lock(&__threadMutex);
     if (currentThread -> canSwitchThread) {
         if (currentThread -> threadState == THREAD_STATE_RUNNING) {
             currentThread -> threadState = THREAD_STATE_RUNNABLE; //current Thread already at the end of queue
         }
-        lockThread();
         int notFound = 1;
         struct ThreadInfo* thread;
         while (notFound) {
@@ -145,7 +144,6 @@ void switchThread() {
             }
         }
         //printf("Found new thread\n");
-        unlockThread();
         thread -> threadState = THREAD_STATE_RUNNING;
         if (currentThread != thread) {
             //printf("Threads are not the same\n");
@@ -157,11 +155,17 @@ void switchThread() {
             //printf("Threads are the same\n");
         }
     }
+    lock(&__threadMutex);
 }
 void joinThread(struct ThreadInfo* thread) {
+    lock(&__threadMutex);
     if (thread -> threadState != THREAD_STATE_FINISHED) {
-        wait(thread -> joinedThreadsNotifyer);
-    }    
+        __addWaitor(thread -> joinedThreadsNotifyer);
+        unlock(&__threadMutex);
+        switchThread();
+        return;
+    }
+    unlock(&__threadMutex);
 }
 
 //Mutex
@@ -175,10 +179,10 @@ void initiateMutex(struct Mutex* mutex) {
 }
 
 struct Mutex* newMutex() {
-    lockThread();
+    lock(&__threadMutex);
     struct Mutex* mutex = (struct Mutex*) mem_alloc(sizeof(struct Mutex));
     initiateMutex(mutex); 
-    unlockThread();
+    unlock(&__threadMutex);
     return mutex;
 }
 
@@ -220,31 +224,39 @@ void unlock(struct Mutex* m) {
 }
 
 //Notifyer
+void __addWaitor(struct Notifyer* notifyer) {
+    lock(notifyer -> mutex);
+    notifyer -> waiters[notifyer -> waitersCount++] = currentThread;
+    currentThread->threadState = THREAD_STATE_WAIT;
+    unlock(notifyer -> mutex);
+}
 
 struct Notifyer* newNotifyer() {
-    lockThread();
     struct Notifyer* notifyer = (struct Notifyer*) mem_alloc(sizeof(struct Notifyer));
+    notifyer -> mutex = newMutex();
     notifyer -> waitersCount = 0;
-    unlockThread();
     return notifyer;
 }
 void wait(struct Notifyer* notifyer) {
-    lockThread();
-    notifyer -> waiters[notifyer -> waitersCount++] = currentThread;
-    currentThread->threadState = THREAD_STATE_WAIT;
-    unlockThread();
+    lock(&__threadMutex);
+    __addWaitor(notifyer);
+    unlock(&__threadMutex);
     switchThread();
 }
 void notify(struct Notifyer* notifyer) {
-    lockThread();
+    lock(&__threadMutex);
+    lock(notifyer -> mutex);
     notifyer -> waiters[notifyer -> waitersCount--] -> threadState = THREAD_STATE_RUNNABLE;
-    unlockThread();
+    unlock(notifyer -> mutex);
+    unlock(&__threadMutex);
 }
 void notifyAll(struct Notifyer* notifyer) {
-    lockThread();
+    lock(&__threadMutex);
+    lock(notifyer -> mutex);
     for (int i = 0; i < notifyer -> waitersCount; i++) {
         notifyer -> waiters[i] -> threadState = THREAD_STATE_RUNNABLE;
     }
     notifyer -> waitersCount = 0;
-    unlockThread();
+    unlock(notifyer -> mutex);
+    unlock(&__threadMutex);
 }
