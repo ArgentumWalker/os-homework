@@ -170,10 +170,12 @@ void lock(struct Mutex* m) {
     for (int level = 0; level < MAX_THREAD_COUNT - 1; ++level) {
         m->claim[currentThread->id] = level + 1;
         struct ThreadInfo* prevThread = threads[m->turn[level]];
+        __asm__ volatile("": : :"memory");
         m->turn[level] = currentThread->id;
+        __asm__ volatile("": : :"memory");
         if (prevThread != 0)
             prevThread -> threadState = THREAD_STATE_RUNNABLE; //У этого потока теперь выполнено одно из условий прерывания цикла
-        
+        __asm__ volatile("": : :"memory");
         while (1) {
             int found = 0;
             for (int thread = 0; !found && thread < MAX_THREAD_COUNT; thread++) {
@@ -183,10 +185,13 @@ void lock(struct Mutex* m) {
             if (!found) break;
             if (m->turn[level] != currentThread->id) break;
             printf("Turning into a sleep\n");
+            __asm__ volatile("": : :"memory");
             currentThread->threadState = THREAD_STATE_WAIT_MUTEX; //Проснется только если MUTEX не залочен или может попасть на новый уровень.
+            __asm__ volatile("": : :"memory");
             switchThread();
         }
     }
+    __asm__ volatile("": : :"memory");
     m -> isLocked = 1;
 }
 int isLocked(struct Mutex* m) {
