@@ -1,6 +1,7 @@
 #include <balloc.h>
 #include <memory.h>
 #include <debug.h>
+#include "threads.h"
 
 
 struct mboot_info {

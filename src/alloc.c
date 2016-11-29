@@ -3,6 +3,7 @@
 #include <string.h>
 #include <alloc.h>
 #include <debug.h>
+#include "threads.h"
 
 
 #define WORD_SZ		sizeof(unsigned long long)

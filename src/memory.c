@@ -2,7 +2,7 @@
 #include <string.h>
 #include <balloc.h>
 #include <debug.h>
-#include <threads.h>
+#include "threads.h"
 
 #define PAGE_FREE_OFFS	8
 #define PAGE_FREE_MASK	(1ul << PAGE_FREE_OFFS)

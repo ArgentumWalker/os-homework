@@ -7,6 +7,7 @@
 #include <print.h>
 #include <ints.h>
 #include <time.h>
+#include "threads.h"
 
 static void qemu_gdb_hang(void)
 {
@@ -14,6 +15,44 @@ static void qemu_gdb_hang(void)
 	static volatile int wait = 1;
 
 	while (wait);
+#endif
+}
+
+static void threadWithMutex (void* mutex) {
+    lock((struct Mutex*)mutex);
+    printf("Thread %d in mutex!\n", currentThread -> id);
+    unlock((struct Mutex*)mutex);
+}
+
+static void notifyerSender(void* notifyer) {
+    printf("Send a notify\n");
+    notify((struct Notifyer*) notifyer);
+}
+
+static void notifyerWaiter (void* notifyer) {
+    wait((struct Notifyer*)notifyer);
+    printf("Complete waiting for nytifyer\n");
+}
+
+static void test_threads() {
+#ifdef DEBUG
+    struct Notifyer* notifyer = newNotifyer();
+    struct Mutex* mutex = newMutex();
+    struct ThreadInfo* thread1 = newThread(&threadWithMutex, (void*)mutex);
+    struct ThreadInfo* thread2 = newThread(&threadWithMutex, (void*)mutex);
+    struct ThreadInfo* thread3 = newThread(&threadWithMutex, (void*)mutex);
+    struct ThreadInfo* thread4 = newThread(&notifyerWaiter, (void*)notifyer);
+    struct ThreadInfo* thread5 = newThread(&notifyerSender, (void*)notifyer);
+    startThread(thread1);
+    startThread(thread2);
+    startThread(thread3);
+    startThread(thread4);
+    startThread(thread5);
+    joinThread(thread1);
+    joinThread(thread2);
+    joinThread(thread3);
+    joinThread(thread4);
+    joinThread(thread5);
 #endif
 }
 
@@ -135,6 +174,7 @@ void main(void *bootstrap_info)
 {
 	qemu_gdb_hang();
 
+    initThreads();
 	serial_setup();
 	ints_setup();
 	time_setup();
@@ -150,6 +190,7 @@ void main(void *bootstrap_info)
 	test_slab();
 	test_alloc();
 	test_kmap();
+	test_threads();
 	printf("Tests Finished\n");
 
 	while (1);
