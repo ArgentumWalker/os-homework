@@ -45,10 +45,7 @@ static void pit_handler(int irq, struct frame *frame)
 	(void) irq;
 	(void) frame;
 	disable_ints();
-	printf("Trying switch thread\n");
-	printf("CurrentThread is %d\n", currentThread -> id);
 	switchThread();
-	printf("Now currentThread is %d\n", currentThread -> id);
 	out8(0x20, 1 << 5); //Master EOI
     out8(0xA0, 1 << 5); //Slave EOI
     enable_ints();

@@ -32,8 +32,10 @@ void switchThread();
 void joinThread(struct ThreadInfo*);
 
 struct Mutex {
-    int claim[MAX_THREAD_COUNT];
-    int turn[MAX_THREAD_COUNT];
+    //int claim[MAX_THREAD_COUNT];
+    //int turn[MAX_THREAD_COUNT];
+    int select[MAX_THREAD_COUNT];
+    int ticket[MAX_THREAD_COUNT];
     int isLocked;
 };
 

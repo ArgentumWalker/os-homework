@@ -45,16 +45,26 @@ static void test_threads() {
     struct ThreadInfo* thread5 = newThread(&notifyerSender, (void*)notifyer);
     printf("Start threads\n");
     startThread(thread1);
+    printf("Thread %d started\n", thread1->id);
     startThread(thread2);
+    printf("Thread %d started\n", thread2->id);
     startThread(thread3);
+    printf("Thread %d started\n", thread3->id);
     startThread(thread4);
+    printf("Thread %d started\n", thread4->id);
     startThread(thread5);
+    printf("Thread %d started\n", thread5->id);
     printf("Join threads\n");
     joinThread(thread1);
+    printf("Thread %d joined\n", thread1->id);
     joinThread(thread2);
+    printf("Thread %d joined\n", thread2->id);
     joinThread(thread3);
+    printf("Thread %d joined\n", thread3->id);
     joinThread(thread4);
+    printf("Thread %d joined\n", thread4->id);
     joinThread(thread5);
+    printf("Thread %d joined\n", thread5->id);
 #endif
 }
 /*
@@ -191,6 +201,7 @@ void main(void *bootstrap_info)
 	page_alloc_setup();
 	mem_alloc_setup();
 	kmap_setup();
+	printf("Ready to Tests\n");
 	enable_ints();
 
 	printf("Tests Begin\n");
