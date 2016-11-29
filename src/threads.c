@@ -22,6 +22,7 @@ static struct ThreadInfo kernelThread;
 static struct ThreadInfo* threads[MAX_THREAD_COUNT];
 static struct ThreadInfo* threadQueue[MAX_THREAD_COUNT + 1];
 static int queueEnd, queuePos;
+static struct Notifyer kernelNotifyer;
 
 //Other functions
 void callThreadMain(void (*threadMain)(void*), void* arg) {
@@ -61,6 +62,7 @@ void initThreads() {
     currentThread -> stackPtr = 0;
     currentThread -> threadLockCount = 0;
     currentThread -> canSwitchThread = 1;
+    currentThread -> joinedThreadsNotifyer = &kernelNotifyer;
     currentThread -> threadState = THREAD_STATE_RUNNING;
     threadQueue[0] = currentThread;
     threads[0] = currentThread;
