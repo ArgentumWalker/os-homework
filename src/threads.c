@@ -26,8 +26,8 @@ static struct Notifyer kernelNotifyer;
 
 //Other functions
 void callThreadMain(void (*threadMain)(void*), void* arg) {
-  out8(0x20, 1 << 5); //Master EOI
-  out8(0xA0, 1 << 5); //Slave EOI
+  //out8(0x20, 1 << 5); //Master EOI
+  //out8(0xA0, 1 << 5); //Slave EOI
   threadMain(arg);
   finishThread(currentThread);
   switchThread();
@@ -76,9 +76,11 @@ struct ThreadInfo* newThread(void (*threadMain)(void*), void* arg) {
   lockThread();
   
   struct ThreadInfo *newThread = (struct ThreadInfo*) mem_alloc(sizeof(struct ThreadInfo));
+  newThread->id = 0;
   for (int freeID = 0; threads[freeID] != 0; freeID++) {
-    newThread -> id = freeID;
+    newThread -> id = freeID + 1;
   }
+  printf("New thread id = %d\n", newThread->id);
   threads[newThread -> id] = newThread;
   newThread -> threadLockCount = 0;
   newThread -> canSwitchThread = 1;
@@ -102,8 +104,18 @@ struct ThreadInfo* newThread(void (*threadMain)(void*), void* arg) {
 }
 
 void startThread(struct ThreadInfo* thread) {
+    lockThread();
     thread -> threadState = THREAD_STATE_RUNNABLE;
     __addThreadToQueue(thread);
+    if (queueEnd < queuePos) {
+        printf("Queue size %d\n", (MAX_THREAD_COUNT - queuePos) + queueEnd);
+    } else {
+        printf("Queue size %d\n", queueEnd - queuePos);
+    }
+    for (int i = queuePos; i != queueEnd; i = (i + 1) % MAX_THREAD_COUNT) {
+        printf("Thread %d\n", threadQueue[i]->id);
+    }
+    unlockThread();
 }
  
 void finishThread(struct ThreadInfo* thread) {
@@ -114,7 +126,7 @@ void finishThread(struct ThreadInfo* thread) {
 }
 
 void switchThread() {
-    disable_ints();
+    //printf("Start switchThread\n");
     if (currentThread -> canSwitchThread) {
         if (currentThread -> threadState == THREAD_STATE_RUNNING) {
             currentThread -> threadState = THREAD_STATE_RUNNABLE; //current Thread already at the end of queue
@@ -132,16 +144,19 @@ void switchThread() {
                 thread -> threadState = THREAD_STATE_RUNNABLE;
             }
         }
+        //printf("Found new thread\n");
         unlockThread();
         thread -> threadState = THREAD_STATE_RUNNING;
         if (currentThread != thread) {
+            //printf("Threads are not the same\n");
             struct ThreadInfo* cur = currentThread;
             currentThread = thread;
             asm_switch_threads(&(cur->stackPtr), thread -> stackPtr);
-            printf("Switch thread %d to thread %d\n", cur->id, thread->id);
+            //printf("Finish switch threads\n");
+        } else {
+            //printf("Threads are the same\n");
         }
     }
-    enable_ints();
 }
 void joinThread(struct ThreadInfo* thread) {
     if (thread -> threadState != THREAD_STATE_FINISHED) {
@@ -197,7 +212,6 @@ void lock(struct Mutex* m) {
     m -> isLocked = 1;
 }
 int isLocked(struct Mutex* m) {
-    printf("isLocking check\n");
     return m -> isLocked;
 }
 void unlock(struct Mutex* m) {

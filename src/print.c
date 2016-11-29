@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <serial.h>
+#include "threads.h"
 
 
 struct print_ctx {
@@ -243,13 +244,14 @@ int vsnprintf(char *buf, size_t size, const char *fmt, va_list args)
 
 int printf(const char *fmt, ...)
 {
+ //   lockThread();
 	va_list args;
 	int rc;
 
 	va_start(args, fmt);
 	rc = vprintf(fmt, args);
 	va_end(args);
-
+ //   unlockThread();
 	return rc;
 }
 

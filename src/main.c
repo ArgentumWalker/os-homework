@@ -57,7 +57,7 @@ static void test_threads() {
     joinThread(thread5);
 #endif
 }
-
+/*
 static void test_kmap(void)
 {
     lockThread();
@@ -155,8 +155,8 @@ static void test_buddy(void)
 {
 	struct list_head head;
 	unsigned long count = 0;
-    lockThread();
 	list_init(&head);
+	{lockThread(); // It makes alloc work faster
 	while (1) {
 		struct page *page = __page_alloc(0);
 
@@ -165,55 +165,45 @@ static void test_buddy(void)
 		++count;
 		list_add(&page->ll, &head);
 	}
+	unlockThread();} 
     
 	printf("Allocated %lu pages\n", count);
-
+    {lockThread();
 	while (!list_empty(&head)) {
 		struct list_head *node = head.next;
 		struct page *page = CONTAINER_OF(node, struct page, ll);
 
 		list_del(&page->ll);
 		__page_free(page, 0);
-	}
-	unlockThread();
-}
+	} unlockThread();}
+}*/
 
 void main(void *bootstrap_info)
 {
 	qemu_gdb_hang();
 
 	serial_setup();
-    printf("Serial Initiated\n");
     initThreads();
     lockThread();
-    printf("Threads Initiated\n");
 	ints_setup();
-	printf("Interruptions initiated\n");
 	time_setup();
-	printf("Timer initiated\n");
 	balloc_setup(bootstrap_info);
-	printf("Balloc initiated\n");
 	paging_setup();
-	printf("Paging initiated\n");
 	page_alloc_setup();
-	printf("Page_alloc initiated\n");
 	mem_alloc_setup();
-	printf("Mem_alloc initiated\n");
 	kmap_setup();
-	printf("Kmap initiated\n");
 	unlockThread();
-	printf("Ready to tests\n");
 	enable_ints();
 
 	printf("Tests Begin\n");
-	printf("Buddy Test\n");
+	/*printf("Buddy Test\n");
 	test_buddy();
 	printf("Slab Test\n");
 	test_slab();
 	printf("Alloc Test\n");
 	test_alloc();
 	printf("Kmap Test\n");
-	test_kmap();
+	test_kmap();*/
 	printf("Threads Test\n");
 	test_threads();
 	printf("Tests Finished\n");

@@ -11,6 +11,7 @@
 #define MIN_POOL_OBJS	8
 #define PAGE_CACHE_BIT	0
 
+static struct Mutex __allocMemoryMutex;
 
 struct mem_pool {
 	struct list_head ll;
@@ -27,7 +28,6 @@ struct alignment_off {
 
 static int ilog2(uintmax_t x)
 {
-    lockThread();
 	uintmax_t val = 1;
 	int power = 0;
 
@@ -35,7 +35,6 @@ static int ilog2(uintmax_t x)
 		val <<= 1;
 		++power;
 	}
-    unlockThread();
 	return power;
 }
 
@@ -65,11 +64,9 @@ static uintmax_t align_down(uintmax_t size, uintmax_t align)
 static size_t meta_size(size_t objs)
 {
 
-    lockThread();
 	static const size_t meta_align = offsetof(struct alignment_off, pool);
 
 	const size_t bitmask_size = (ceil(objs, OBJS_PER_WORD) - 1) * WORD_SZ;
-    unlockThread();
 
 	return align_up(sizeof(struct mem_pool) + bitmask_size, meta_align);
 }
@@ -77,7 +74,6 @@ static size_t meta_size(size_t objs)
 static void mem_cache_layout_setup(struct mem_cache *cache,
 			size_t size, size_t align)
 {
-    lockThread();
 	const size_t obj_size = align_up(size, align);
 	const size_t min_size = obj_size * MIN_POOL_OBJS +
 				meta_size(MIN_POOL_OBJS);
@@ -94,13 +90,11 @@ static void mem_cache_layout_setup(struct mem_cache *cache,
 	cache->mask_words = ceil(objs, OBJS_PER_WORD);
 	cache->obj_size = obj_size;
 	cache->pool_order = pool_order;
-    unlockThread();
 }
 
 static void mem_pool_bitmap_setup(struct mem_cache *cache,
 			struct mem_pool *pool)
 {
-    lockThread();
 	const size_t words = cache->mask_words;
 	const size_t pos = cache->obj_count % OBJS_PER_WORD;
 	const size_t word = cache->obj_count / OBJS_PER_WORD;
@@ -112,7 +106,6 @@ static void mem_pool_bitmap_setup(struct mem_cache *cache,
 
 	for (size_t w = word + 1; w < words; ++w)
 		pool->bitmask[w] = ~0ul;
-    unlockThread();
 }
 
 static struct mem_pool *mem_pool_create(struct mem_cache *cache)
@@ -122,8 +115,7 @@ static struct mem_pool *mem_pool_create(struct mem_cache *cache)
 	if (!page)
 		return 0;
 
-    lockThread();
-	const uintptr_t addr = page_addr(page); 
+ 	const uintptr_t addr = page_addr(page); 
 	struct mem_pool *meta = va(addr + cache->meta_offs);
 
 	for (int i = 0; i != 1 << cache->pool_order; ++i) {
@@ -135,14 +127,12 @@ static struct mem_pool *mem_pool_create(struct mem_cache *cache)
 	meta->data = va(addr);
 	meta->free = cache->obj_count;
 	mem_pool_bitmap_setup(cache, meta);
-    unlockThread();
-
+ 
 	return meta;
 }
 
 static void mem_pool_destroy(struct mem_cache *cache, struct mem_pool *pool)
 {
-    lockThread();
 	BUG_ON(pool->free != cache->obj_count);
 
 	struct page *page = pool->page;
@@ -153,23 +143,20 @@ static void mem_pool_destroy(struct mem_cache *cache, struct mem_pool *pool)
 	}
 
 	__page_free(page, cache->pool_order);
-    unlockThread();
 }
 
 void mem_cache_setup(struct mem_cache *cache, size_t size, size_t align)
 {
-    lockThread();
 	mem_cache_layout_setup(cache, size, align);
 
 	list_init(&cache->free_pools);
 	list_init(&cache->partial_pools);
 	list_init(&cache->busy_pools);
-    unlockThread();
 }
 
 void mem_cache_shrink(struct mem_cache *cache)
 {
-    lockThread();
+    lock(&__allocMemoryMutex);
 	struct list_head free_slabs;
 	struct list_head *head, *ptr;
 
@@ -185,12 +172,12 @@ void mem_cache_shrink(struct mem_cache *cache)
 		ptr = ptr->next;
 		mem_pool_destroy(cache, pool);
 	}
-    unlockThread();
+    unlock(&__allocMemoryMutex);
 }
 
 void mem_cache_release(struct mem_cache *cache)
 {
-    lockThread();
+    lock(&__allocMemoryMutex);
 	BUG_ON(!list_empty(&cache->busy_pools));
 	BUG_ON(!list_empty(&cache->partial_pools));
 
@@ -202,7 +189,7 @@ void mem_cache_release(struct mem_cache *cache)
 		ptr = ptr->next;
 		mem_pool_destroy(cache, pool);
 	}
-    unlockThread();
+    unlock(&__allocMemoryMutex);
 }
 
 static int ffs(unsigned long long bitmask)
@@ -210,7 +197,6 @@ static int ffs(unsigned long long bitmask)
 	unsigned long long mask = 0xffull;
 	int byte, bit;
 
-    lockThread();
 	for (byte = 0; byte != 8; ++byte, mask <<= 8)
 		if (bitmask & mask)
 			break;
@@ -220,13 +206,11 @@ static int ffs(unsigned long long bitmask)
 		if (bitmask & mask)
 			break;
 
-    unlockThread();
 	return byte * 8 + bit;
 }
 
 static void *mem_pool_alloc(struct mem_cache *cache, struct mem_pool *pool)
 {
-    lockThread();
 	BUG_ON(!pool->free);
 
 	const size_t words = cache->mask_words;
@@ -243,11 +227,10 @@ static void *mem_pool_alloc(struct mem_cache *cache, struct mem_pool *pool)
 
 		pool->bitmask[word] |= (1ul << bit);
 		--pool->free;
-        unlockThread();
+        unlock(&__allocMemoryMutex);
 		return (void *)(addr + pos * cache->obj_size);
 	}
 	BUG("Failed to find free slot in mem_pool")
-    unlockThread();
 }
 
 static void mem_pool_free(struct mem_cache *cache, struct mem_pool *pool,
@@ -256,7 +239,6 @@ static void mem_pool_free(struct mem_cache *cache, struct mem_pool *pool,
 	const uintptr_t offs = (uintptr_t)ptr - (uintptr_t)pool->data;
 	const size_t pos = offs / cache->obj_size;
 
-    lockThread();
 	BUG_ON(pos >= cache->obj_count);
 
 	size_t word = pos / OBJS_PER_WORD;
@@ -268,12 +250,11 @@ static void mem_pool_free(struct mem_cache *cache, struct mem_pool *pool,
 	++pool->free;
 
 	BUG_ON(pool->free > cache->obj_count);
-    unlockThread();
 }
 
 void *mem_cache_alloc(struct mem_cache *cache)
 {
-    lockThread();
+    lock(&__allocMemoryMutex);
 	if (!list_empty(&cache->partial_pools)) {
 		struct list_head *ptr = list_first(&cache->partial_pools);
 		struct mem_pool *pool = LIST_ENTRY(ptr, struct mem_pool, ll);
@@ -284,7 +265,7 @@ void *mem_cache_alloc(struct mem_cache *cache)
 			list_del(&pool->ll);
 			list_add(&pool->ll, &cache->busy_pools);
 		}
-        unlockThread();
+        unlock(&__allocMemoryMutex);
 		return data;
 	}
 
@@ -298,27 +279,27 @@ void *mem_cache_alloc(struct mem_cache *cache)
 			list_del(&pool->ll);
 			list_add(&pool->ll, &cache->partial_pools);
 		}
-        unlockThread();
+        unlock(&__allocMemoryMutex);
 		return data;
 	}
 
 	struct mem_pool *pool = mem_pool_create(cache);
 
 	if (!pool) {
-        unlockThread();
+        unlock(&__allocMemoryMutex);
 		return 0;
 	}
 
 	void *data = mem_pool_alloc(cache, pool);
 
 	list_add(&pool->ll, &cache->partial_pools);
-    unlockThread();
+    unlock(&__allocMemoryMutex);
 	return data;
 }
 
 void mem_cache_free(struct mem_cache *cache, void *ptr)
 {
-    lockThread();
+    lock(&__allocMemoryMutex);
 	const size_t pool_size = (size_t)1 << (cache->pool_order + PAGE_SHIFT);
 	const uintptr_t addr = align_down((uintptr_t)ptr, pool_size);
 	struct mem_pool *pool = (struct mem_pool *)(addr + cache->meta_offs);
@@ -334,7 +315,7 @@ void mem_cache_free(struct mem_cache *cache, void *ptr)
 		list_del(&pool->ll);
 		list_add(&pool->ll, &cache->free_pools);
 	}
-    unlockThread();
+    unlock(&__allocMemoryMutex);
 }
 
 
@@ -351,68 +332,61 @@ static struct mem_cache mem_pool[MEM_POOLS];
 
 static struct mem_cache *mem_pool_lookup(size_t size)
 {
-    lockThread();
 	for (int i = 0; i != MEM_POOLS; ++i)
 		if (mem_pool_size[i] >= size) {
-		    unlockThread();
 			return &mem_pool[i];
 		}
-    unlockThread();
 	return 0;
 }
 
 static int mem_order_calculate(size_t size)
 {
-    lockThread();
 	int order;
 
 	for (order = 0; order != MAX_ORDER + 1; ++order)
 		if (((size_t)1 << (order + PAGE_SHIFT)) >= size)
 			break;
-    unlockThread();
 	return order;
 }
 
 void mem_alloc_setup(void)
 {
-    lockThread();
+    initiateMutex(&__allocMemoryMutex);
 	for (int i = 0; i != MEM_POOLS; ++i) {
 		const size_t size = mem_pool_size[i];
 		const size_t align = mem_pool_size[0];
 
 		mem_cache_setup(&mem_pool[i], size, align);
 	}
-    unlockThread();
 }
 
 void mem_alloc_shrink(void)
 {
-    lockThread();
 	for (int i = 0; i != MEM_POOLS; ++i)
 		mem_cache_shrink(&mem_pool[i]);
-    unlockThread();
 }
 
 void *mem_alloc(size_t size)
 {
-    lockThread();
+    lock(&__allocMemoryMutex);
 	struct mem_cache *cache = mem_pool_lookup(size);
 
-	if (cache)
+	if (cache) {
+        unlock(&__allocMemoryMutex);
 		return mem_cache_alloc(cache);
-
+    }
 	const int order = mem_order_calculate(size);
 	struct page *page = __page_alloc(order);
 
 	if (!page) {
-        unlockThread();
+        unlock(&__allocMemoryMutex);
 		return 0;
 	}
 
 	page_clear_bit(page, PAGE_CACHE_BIT);
 	page->u.order = order;
 
-    unlockThread();
+    unlock(&__allocMemoryMutex);
 	return va(page_addr(page));
 }
 
@@ -421,13 +395,13 @@ void mem_free(void *ptr)
 	if (!ptr)
 		return;
 
-    lockThread();
+    lock(&__allocMemoryMutex);
 	struct page *page = addr_page(pa(ptr) & ~(uintptr_t)PAGE_MASK);
 
 	if (page_test_bit(page, PAGE_CACHE_BIT)) {
+		unlock(&__allocMemoryMutex);
 		mem_cache_free(page->u.cache, ptr);
-        unlockThread();
-		return;
+        return;
 	}
 
 	const int order = page->u.order;
@@ -436,7 +410,7 @@ void mem_free(void *ptr)
 	page_clear_bit(page, PAGE_CACHE_BIT);
 	page->u.order = 0;
 	page_free((~mask & pa(ptr)), order);
-    unlockThread();
+    unlock(&__allocMemoryMutex);
 }
 
 void *mem_realloc(void *ptr, size_t size)
@@ -444,7 +418,7 @@ void *mem_realloc(void *ptr, size_t size)
 	if (!ptr)
 		return mem_alloc(size);
     
-    lockThread();
+    lock(&__allocMemoryMutex);
 	struct page *page = addr_page(pa(ptr) & ~(uintptr_t)PAGE_MASK);
 	size_t old_size;
 
@@ -459,20 +433,22 @@ void *mem_realloc(void *ptr, size_t size)
 
 		old_size = (size_t)1 << (PAGE_SHIFT + order);
 		if (old_size >= size) {
-            unlockThread();
+            unlock(&__allocMemoryMutex);
 			return ptr;
 		}
 	}
-
+    
+    unlock(&__allocMemoryMutex);
 	void *new = mem_alloc(size);
+	lock(&__allocMemoryMutex);
 
 	if (!new) {
-        unlockThread();
+        unlock(&__allocMemoryMutex);
 		return 0;
 	}
 
 	memcpy(new, ptr, old_size);
+    unlock(&__allocMemoryMutex);
 	mem_free(ptr);
-    unlockThread();
 	return new;
 }
